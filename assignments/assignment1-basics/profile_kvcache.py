@@ -38,6 +38,7 @@ def main() -> None:
         config["context_length"] = max(config.get("context_length", 1024), 1088)
         model = TransformerLM(**config, device=device, dtype=dtype)
         model.load_state_dict(ckpt["model_state_dict"])
+        del ckpt  # 释放 fp32 权重副本，避免污染后续显存基线
     else:
         config = dict(
             vocab_size=50257,
@@ -73,6 +74,8 @@ def main() -> None:
     for _ in range(3):
         _ = model.generate(prompt, max_new_tokens=16, use_cache=True)
     sync_device(device)
+    if device == "cuda":
+        print(f"  -> 权重与 prompt 基线占用: {torch.cuda.memory_allocated() / (1024**2):.1f} MB")
 
     print("\n[Step 2] 开始运行序列长度扩展 Benchmark...")
     for L in gen_lengths:
@@ -86,7 +89,11 @@ def main() -> None:
 
         # 测 KV Cache 增量模式 (O(L) 线性复杂度)
         if device == "cuda":
-            torch.cuda.reset_peak_memory_stats()
+            torch.cuda.synchronize()
+            torch.cuda.empty_cache()  # 清空缓存池，隔离上一个 L 留下的碎片
+            base_alloc_mb = torch.cuda.memory_allocated() / (1024**2)
+            base_reserved_mb = torch.cuda.memory_reserved() / (1024**2)
+            torch.cuda.reset_peak_memory_stats()  # 峰值计数器从当前水位重新起算
         sync_device(device)
         t0 = time.perf_counter()
         _, kv_cache = model.generate(
@@ -94,11 +101,18 @@ def main() -> None:
         )
         sync_device(device)
         cache_ms = (time.perf_counter() - t0) * 1000.0
+        if device == "cuda":
+            peak_alloc_mb = torch.cuda.max_memory_allocated() / (1024**2)
+            peak_reserved_mb = torch.cuda.max_memory_reserved() / (1024**2)
+            steady_alloc_mb = torch.cuda.memory_allocated() / (1024**2)
+        else:
+            base_alloc_mb = base_reserved_mb = peak_alloc_mb = peak_reserved_mb = steady_alloc_mb = 0.0
         cache_tps = L / (cache_ms / 1000.0)
         speedup = no_cache_ms / cache_ms
 
         total_seq = prompt_len + L
         measured_kv_mb = kv_cache.memory_bytes() / (1024**2)
+        del kv_cache  # 释放引用，避免上一个 L 的缓存污染下一轮的基线
         bytes_per_elem = 2 if dtype == torch.float16 else 4
         theory_kv_mb = theoretical_kv_cache_mb(
             batch_size=1,
@@ -119,6 +133,12 @@ def main() -> None:
                 speedup=speedup,
                 measured_kv_mb=measured_kv_mb,
                 theory_kv_mb=theory_kv_mb,
+                base_alloc_mb=base_alloc_mb,
+                peak_alloc_mb=peak_alloc_mb,
+                peak_reserved_mb=peak_reserved_mb,
+                peak_kv_delta_mb=peak_alloc_mb - base_alloc_mb,
+                peak_reserved_delta_mb=peak_reserved_mb - base_reserved_mb,
+                steady_kv_delta_mb=steady_alloc_mb - base_alloc_mb,
             )
         )
 
@@ -126,14 +146,16 @@ def main() -> None:
     print("\n### KV Cache 推理加速与显存剖析实验表\n")
     print(
         "| 生成长度 $L$ | 无缓存耗时 (ms) | KV Cache 耗时 (ms) | 无缓存吞吐 (tok/s) "
-        "| KV Cache 吞吐 (tok/s) | 加速比 | KV Cache 显存实测 / 理论 (MB) |"
+        "| KV Cache 吞吐 (tok/s) | 加速比 | 张量口径 / 理论 (MB) "
+        "| 分配器峰值增量 (MB) |"
     )
-    print("| :---: | :---: | :---: | :---: | :---: | :---: | :---: |")
+    print("| :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |")
     for r in results:
         print(
             f"| {r['L']} | {r['no_cache_ms']:.1f} | {r['cache_ms']:.1f} "
             f"| {r['no_cache_tps']:.1f} | {r['cache_tps']:.1f} "
-            f"| **{r['speedup']:.2f}x** | {r['measured_kv_mb']:.2f} / {r['theory_kv_mb']:.2f} |"
+            f"| **{r['speedup']:.2f}x** | {r['measured_kv_mb']:.2f} / {r['theory_kv_mb']:.2f} "
+            f"| {r['peak_kv_delta_mb']:.2f} |"
         )
 
     # 绘制双子图
@@ -151,9 +173,10 @@ def main() -> None:
 
     ax2.plot(Ls, [r["theory_kv_mb"] for r in results], "k--", label="Theoretical Formula")
     ax2.plot(Ls, [r["measured_kv_mb"] for r in results], "o-", color="#2ca02c", label="Measured KV Tensor Memory")
+    ax2.plot(Ls, [r["peak_kv_delta_mb"] for r in results], "^-", color="#d62728", label="Allocator Peak Delta")
     ax2.set_xlabel("Generated Sequence Length (Tokens)")
     ax2.set_ylabel("KV Cache Footprint (MB)")
-    ax2.set_title("KV Cache Memory Scaling (Linear O(L))")
+    ax2.set_title("KV Cache Memory: Theory vs. Tensor vs. Allocator Peak")
     ax2.legend()
     ax2.grid(True, linestyle="--", alpha=0.4)
 
