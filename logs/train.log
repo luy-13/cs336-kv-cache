@@ -1,0 +1,17 @@
+[Tokenizer] 使用 tiktoken (GPT-2) 编码完成，总 Token 数: 1,328,129
+[Model] 初始化完成 | 设备: cuda | 参数量: 30.85M
+Step 001/300 | Loss: 10.8349 | LR: 1.00e-03 | Time: 0.7s
+Step 025/300 | Loss: 5.7604 | LR: 9.85e-04 | Time: 5.3s
+Step 050/300 | Loss: 4.6730 | LR: 9.40e-04 | Time: 10.1s
+Step 075/300 | Loss: 4.0299 | LR: 8.68e-04 | Time: 14.9s
+Step 100/300 | Loss: 3.7217 | LR: 7.75e-04 | Time: 19.6s
+Step 125/300 | Loss: 3.5944 | LR: 6.66e-04 | Time: 24.4s
+Step 150/300 | Loss: 3.4449 | LR: 5.50e-04 | Time: 29.2s
+Step 175/300 | Loss: 3.3684 | LR: 4.34e-04 | Time: 34.0s
+Step 200/300 | Loss: 3.3479 | LR: 3.25e-04 | Time: 38.7s
+Step 225/300 | Loss: 3.3256 | LR: 2.32e-04 | Time: 43.5s
+Step 250/300 | Loss: 3.0002 | LR: 1.60e-04 | Time: 48.3s
+Step 275/300 | Loss: 3.1149 | LR: 1.15e-04 | Time: 53.1s
+Step 300/300 | Loss: 3.0784 | LR: 1.00e-04 | Time: 57.9s
+[Done] 权重已保存至 checkpoints/model.pt，损失曲线已保存至 assets/training_loss.png
+EXIT=0

@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+
+# 训练产物：体积大，且超过 GitHub 单文件 100MB 上限
+*.pt
+*.pth
+checkpoints/
+
+# 课程资料：非本项目产出，体积大
+lectures/
+readings/
+
+# 本地临时文件
+.backup_before_fix/
+.DS_Store
+.idea/
+.vscode/
