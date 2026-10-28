@@ -1,7 +1,7 @@
 import json
 import pickle
 import regex as re
-from typing import Iterable, Iterator
+from collections.abc import Iterable, Iterator
 
 # GPT-2 预分词正则表达式
 PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
@@ -64,7 +64,7 @@ class Tokenizer:
             with open(vocab_filepath, "rb") as f:
                 vocab = pickle.load(f)
         else:
-            with open(vocab_filepath, "r", encoding="utf-8") as f:
+            with open(vocab_filepath, encoding="utf-8") as f:
                 raw_vocab = json.load(f)
                 vocab = {}
                 for k, v in raw_vocab.items():
@@ -80,7 +80,7 @@ class Tokenizer:
             with open(merges_filepath, "rb") as f:
                 merges = pickle.load(f)
         else:
-            with open(merges_filepath, "r", encoding="utf-8") as f:
+            with open(merges_filepath, encoding="utf-8") as f:
                 raw_merges = json.load(f)
                 merges = []
                 for pair in raw_merges:
@@ -143,8 +143,7 @@ class Tokenizer:
         对字符串迭代器进行延迟编码，逐个产出 Token ID
         """
         for chunk in iterable:
-            for token_id in self.encode(chunk):
-                yield token_id
+            yield from self.encode(chunk)
 
     def decode(self, ids: list[int]) -> str:
         """

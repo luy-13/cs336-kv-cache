@@ -15,7 +15,7 @@ RAW = Path("/tmp/ts_64m.bin")
 MAX_BYTES = 64 * 1024 * 1024
 TRAIN_BYTES = 50 * 1024 * 1024
 SEP = "<|endoftext|>"
-DATA_DIR = Path(__file__).parent / "data"
+DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 
 
 def download() -> None:

@@ -19,7 +19,7 @@
 |---|---|
 | 模型构建 | RMSNorm / RoPE / SwiGLU / Causal MHA 全部手写，30.85M 参数 |
 | 混合精度预训练 | 50 MB TinyStories 子集，3000 步，**Train Loss 10.83 → 1.97，Val Loss 3.41 → 2.03** |
-| 推理加速与剖析 | Prefill / Decode 解耦 + KV Cache，**L=1024 时 96.3 → 223.4 tok/s（2.32×）**，并给出分配器峰值显存的对账结论 |
+| 推理加速与剖析 | Prefill / Decode 解耦 + KV Cache，**L=1024 时 80.2 → 186.1 tok/s（2.32×）**，并给出分配器峰值显存的对账结论 |
 
 ---
 
@@ -47,7 +47,7 @@
 - **Prefill**：整段 prompt（Q 长度 = S）走标准因果掩码注意力，一次性写入 K/V；
 - **Decode**：每步只有 1 个 Query，对长度为 `start_pos + 1` 的全量 cache 做注意力。
 
-缓存容器的三个关键设计：
+缓存容器（`src/kvlm/kv_cache.py`）的四个关键能力：
 
 | 能力 | 实现 |
 |---|---|
@@ -56,7 +56,8 @@
 | 截断回滚 | `crop(n)` 丢弃末尾 n 个位置，支持采样分支回退 |
 | 显存自述 | `memory_bytes()` 按 `numel × element_size` 汇报张量口径占用 |
 
-工程校验：官方测试 **47 passed, 1 xfailed**（BPE 训练、分词器、模型前向全部通过）。
+工程校验：官方测试 + KV Cache 专项测试 **50 passed, 1 xfailed**（BPE 训练、分词器、模型前向、
+缓存容器语义与缓存/重算一致性全部通过）。
 
 ---
 
@@ -74,8 +75,11 @@
 | 精度 | BF16 autocast（Ampere sm_86） |
 | Batch | 8 × 梯度累积 2 = 16，seq len 256 |
 | 步数 / 训练量 | 3000 步 / 12,288,000 tokens（约 0.95 轮） |
-| 耗时 / 吞吐 | **585.1 s / ≈21,001 tokens/s** |
+| 耗时 / 吞吐 | **716.8 s / ≈17,142 tokens/s** |
 | 随机性 | 全局 seed 1337 |
+
+> 笔记本 GPU 受功耗墙与温度影响，同一配置在不同时段实测 585–717 s（17k–23k tok/s），
+> Loss 轨迹完全一致（固定 seed）。
 
 ![训练与验证 Loss 曲线](results/figures/training_loss.png)
 
@@ -92,20 +96,20 @@
 ## 4. KV Cache 推理基准与显存对账（核心亮点）
 
 统一在同一 checkpoint 上测量：prompt 16 token、贪心解码、fp16 权重，正式计时前先跑 3 次 16-token 预热解码，
-`torch.cuda.synchronize()` 卡住计时边界。正确性由 `torch.equal` 严格断言：
-**无缓存重算与 KV Cache 增量推理的 64-token 输出逐 token 完全一致（PASS）**。
+每个长度**重复 3 次取中位数**，用 `torch.cuda.synchronize()` 卡住计时边界。
+正确性由 `torch.equal` 严格断言：**无缓存重算与 KV Cache 增量推理的 64-token 输出逐 token 完全一致（PASS）**。
 
 ![KV Cache 延迟与显存曲线](results/figures/kv_cache_benchmark.png)
 
 | 生成长度 L | 无缓存 (ms) | KV Cache (ms) | 无缓存 (tok/s) | Cache (tok/s) | 加速比 | 张量口径 / 理论 (MB) | 分配器峰值增量 (MB) |
 |---:|---:|---:|---:|---:|---:|---:|---:|
-| 64 | 302.1 | 258.7 | 211.8 | 247.4 | 1.17× | 0.46 / 0.47 | 1.73 |
-| 128 | 599.1 | 520.9 | 213.6 | 245.7 | 1.15× | 0.84 / 0.84 | 1.73 |
-| 256 | 1176.5 | 1034.6 | 217.6 | 247.4 | 1.14× | 1.59 / 1.59 | 1.95 |
-| 512 | 2623.1 | 2065.9 | 195.2 | 247.8 | 1.27× | 3.09 / 3.09 | 3.71 |
-| **1024** | **10638.5** | **4583.0** | **96.3** | **223.4** | **2.32×** | **6.09 / 6.09** | **7.21** |
+| 64 | 331.2 | 285.7 | 193.2 | 224.0 | 1.16× | 0.46 / 0.47 | 1.73 |
+| 128 | 656.6 | 574.7 | 194.9 | 222.7 | 1.14× | 0.84 / 0.84 | 1.73 |
+| 256 | 1306.2 | 1134.5 | 196.0 | 225.6 | 1.15× | 1.59 / 1.59 | 1.95 |
+| 512 | 2990.6 | 2339.5 | 171.2 | 218.8 | 1.28× | 3.09 / 3.09 | 3.71 |
+| **1024** | **12767.4** | **5503.2** | **80.2** | **186.1** | **2.32×** | **6.09 / 6.09** | **7.21** |
 
-### 洞察一：为什么短序列只有 1.17×，长序列能到 2.32×
+### 洞察一：为什么短序列只有 1.16×，长序列能到 2.32×
 
 无缓存解码时，生成第 `t` 个 token 需要把长度 `t` 的历史全部重算，单步成本为
 
@@ -115,7 +119,7 @@ O(t² · d_head)  [注意力]  +  O(t · d_model · d_head)  [K/V 投影]
 
 累计到 L 个 token 就是 `O(L³)`；而 KV Cache 每步只算 1 个 Query，累计为 `O(L²)`，理论上 L 越大优势越大。
 
-但实测的 Cache 吞吐在 L ≤ 256 时几乎恒定（247 tok/s），说明此时**每步耗时被固定开销主导**——
+但实测的 Cache 吞吐在 L ≤ 256 时几乎恒定（224 tok/s），说明此时**每步耗时被固定开销主导**——
 一个 30.85M 参数的小模型，单步计算量只有微秒级，真正占时间的是每层十余次 CUDA Kernel Launch 与
 Python dispatch。既然两种模式都卡在同一个常数项 `C₀` 上，比值自然趋近 1：
 
@@ -123,8 +127,8 @@ Python dispatch。既然两种模式都卡在同一个常数项 `C₀` 上，比
 speedup(L) = (C₀ + c·L²) / (C₀ + c'·L)  →  1   (L 很小)
 ```
 
-到 L=1024，无缓存模式的每 token 计算量涨到 96.3 tok/s，而缓存模式仅因 `torch.cat` 的 O(T) 拷贝
-轻微退化到 223.4 tok/s，加速比才真正拉开到 **2.32×**。
+到 L=1024，无缓存模式的每 token 计算量涨到 80.2 tok/s，而缓存模式仅因 `torch.cat` 的 O(T) 拷贝
+轻微退化到 186.1 tok/s，加速比才真正拉开到 **2.32×**。
 
 ### 洞察二：为什么分配器峰值恰好是张量的 1.18 倍
 
@@ -157,12 +161,37 @@ peak / tensor = 1 + 1 / num_layers = 1 + 1/6 = 1.167
 环境：Python 3.13 + [uv](https://docs.astral.sh/uv/) + PyTorch 2.11.0（CUDA 13），单卡 4 GB 即可。
 
 ```bash
-cd assignments/assignment1-basics
-uv sync                                          # 安装依赖
+make setup     # uv sync
+make data      # 流式拉取 64 MB 语料并按故事边界切分
+make train     # 3000 步预训练，约 10 分钟
+make bench     # KV Cache 基准 + 显存剖析，约 90 秒
+make figures   # 从 metrics 重新生成两张图
+```
 
-uv run python fetch_data.py                      # 流式拉取 64 MB 语料并切分 train/valid
-uv run python train.py                           # 3000 步预训练，约 10 分钟
-uv run python profile_kvcache.py                 # KV Cache 基准 + 显存剖析，约 30 秒
+等价的显式命令：
+
+```bash
+uv run python scripts/fetch_data.py
+uv run python scripts/run_train.py --config configs/train_50m.toml
+uv run python scripts/run_bench.py --config configs/bench.toml
+uv run python scripts/plot.py
+```
+
+### 代码结构
+
+```
+src/kvlm/
+├── model.py      # RMSNorm / RoPE / SwiGLU / Causal MHA / TransformerLM / generate
+├── kv_cache.py   # KVCache：update / crop / get_seq_len / memory_bytes
+├── bench.py      # 等价性断言、多长度基准、显存对账
+├── train.py      # 预训练循环（不含绘图与 IO）
+├── data.py       # tiktoken 编码
+├── bpe.py        # BPE 训练
+└── tokenizer.py  # 分词器
+scripts/          # fetch_data / run_train / run_bench / plot
+configs/          # train_50m.toml / bench.toml
+results/          # metrics(JSON/CSV) / figures(PNG) / logs
+docs/             # EXPERIMENT_REPORT.md / DEV_LOG.md
 ```
 
 产物：
@@ -170,8 +199,9 @@ uv run python profile_kvcache.py                 # KV Cache 基准 + 显存剖�
 | 路径 | 内容 |
 |---|---|
 | `checkpoints/model.pt` | 训练后的权重（约 118 MB） |
-| `assets/training_loss.png` | Train / Val 双曲线 |
-| `assets/kv_cache_benchmark.png` | 延迟与显存三线对比图 |
-| `../../RUN_RESULTS.md` | 完整实验记录、测量口径与解读 |
+| `results/metrics/train_*.json` | 完整 loss 曲线、吞吐、GPU 型号、git commit |
+| `results/metrics/bench_*.csv` | 每个长度的延迟 / 吞吐 / 显存 |
+| `results/figures/*.png` | 两张图，均由 `scripts/plot.py` 从 metrics 重建 |
+| `docs/EXPERIMENT_REPORT.md` | 实验记录、测量口径与解读 |
 
 > 说明：数据集与权重体积较大，未纳入版本库，由 `fetch_data.py` 与 `train.py` 现场生成。

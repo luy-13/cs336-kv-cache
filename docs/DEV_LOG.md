@@ -4,7 +4,7 @@
 
 - `uv` 0.13.6 已安装到 `~/.local/bin/uv`，可直接在终端使用。
 - 全局配置 `~/.config/uv/uv.toml` 已指向清华源：`index-url = "https://pypi.tuna.tsinghua.edu.cn/simple"`。
-- 项目环境：`assignments/assignment1-basics/.venv`（约 4.8GB），Python 3.13.18。
+- 项目环境：仓库根目录 `.venv`（约 4.8GB），Python 3.13.18。
 - torch 2.11.0+cu130，`torch.cuda.is_available() == True`，RTX 3050 Ti Laptop（sm_86），fp16 matmul 冒烟测试通过。
 - `matplotlib` 3.11.2 已通过 `uv add` 写入 `pyproject.toml` 与 `uv.lock`。
 - 注意：`uv.lock` 现已整体指向清华源（625 处 TUNA URL，0 处 pypi.org）。换机器或交作业前建议用官方 PyPI 重新执行一次 `uv lock`。
@@ -23,14 +23,14 @@
 
 ### 3.1 特殊 Token 最长匹配（tokenizer.py）
 
-- 位置：`cs336_basics/tokenizer.py` 中 `encode()` 的特殊 token 切分处。
+- 位置：`src/kvlm/tokenizer.py` 中 `encode()` 的特殊 token 切分处。
 - 原因：`re.split` 的交替分支按列表书写顺序匹配，短 token 抢先命中，导致 `"<|endoftext|><|endoftext|>"` 被拆成两个单 token。
 - 改动：构造 pattern 前按长度降序排序特殊 token。
 - 效果：`test_overlapping_special_tokens` 通过，其余 tokenizer 测试全部保持通过。
 
 ### 3.2 BPE 增量统计（bpe.py）
 
-- 位置：`cs336_basics/bpe.py` 的 `train_bpe()`。
+- 位置：`src/kvlm/bpe.py` 的 `train_bpe()`。
 - 原因：原实现每一轮都全量重扫所有 pre-token 并重建元组，420+ 次合并耗时 1.64s。
 - 改动：改为维护 `pair -> 频次`、`pair -> 包含它的 pre-token 集合` 两套索引，外加惰性删除大顶堆；堆项用 `_DescPair` 包装，保证频次相同时仍选字节序最大的 pair（与原实现平局规则一致）。每次合并只更新真正受影响的 pre-token。
 - 效果：
@@ -62,15 +62,15 @@
 - `.backup_before_fix/bpe.py`
 - `.backup_before_fix/tokenizer.py`
 
-恢复方式：把这两个文件覆盖回 `assignments/assignment1-basics/cs336_basics/`。
+恢复方式：把这两个文件覆盖回 `src/kvlm/`。
 
 ## 7. 常用命令
 
 ```bash
-cd /home/luy/Coding/cs336-2026/assignments/assignment1-basics
+cd /home/luy/Coding/cs336-2026
 uv run pytest --timeout=300
-uv run python train.py
-uv run python profile_kvcache.py
+uv run python scripts/run_train.py --config configs/train_50m.toml
+uv run python scripts/run_bench.py --config configs/bench.toml
 ```
 
 ---

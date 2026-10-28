@@ -1,0 +1,33 @@
+{
+  "run_id": "20261028_142058",
+  "config": {
+    "run": {
+      "name": "bench_kvcache",
+      "seed": 42
+    },
+    "model": {
+      "checkpoint": "checkpoints/model.pt",
+      "dtype": "float16",
+      "context_pad": 1088
+    },
+    "bench": {
+      "prompt_len": 16,
+      "lengths": [
+        64,
+        128,
+        256,
+        512,
+        1024
+      ],
+      "warmup": 3,
+      "repeat": 3,
+      "check_tokens": 64
+    }
+  },
+  "device": "cuda",
+  "dtype": "torch.float16",
+  "base_alloc_mb": 67.75830078125,
+  "equivalence_pass": true,
+  "gpu": "NVIDIA GeForce RTX 3050 Ti Laptop GPU",
+  "gpu_state": "2002 MHz, 62, 33.61 W"
+}

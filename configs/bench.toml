@@ -1,0 +1,15 @@
+[run]
+name = "bench_kvcache"
+seed = 42
+
+[model]
+checkpoint = "checkpoints/model.pt"
+dtype = "float16"
+context_pad = 1088
+
+[bench]
+prompt_len = 16
+lengths = [64, 128, 256, 512, 1024]
+warmup = 3
+repeat = 3
+check_tokens = 64

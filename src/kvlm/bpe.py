@@ -107,7 +107,7 @@ def train_bpe(
     # -------------------------------------------------------------
     # 步骤 2：读取文本，使用特殊 Token 隔离并进行预分词
     # -------------------------------------------------------------
-    with open(input_path, "r", encoding="utf-8") as f:
+    with open(input_path, encoding="utf-8") as f:
         text = f.read()
 
     if special_tokens:

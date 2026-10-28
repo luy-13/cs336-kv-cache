@@ -2,13 +2,16 @@ from __future__ import annotations
 
 import math
 import os
-from typing import BinaryIO, Callable, IO, Iterable, Optional
+from typing import BinaryIO, IO
+from collections.abc import Callable, Iterable
 
 import numpy as np
 import numpy.typing as npt
 import torch
 import torch.nn as nn
 from torch import Tensor
+
+from .kv_cache import KVCache
 
 
 # ==============================================================================
@@ -196,54 +199,6 @@ class RotaryPositionalEmbedding(nn.Module):
         return out.to(in_dtype)
 
 
-class KVCache:
-    """
-    轻量级 KV Cache 状态管理器（加分项一核心组件）
-    用于在自回归生成中缓存每一层的历史 Key 和 Value 张量，将单步解码复杂度从 O(T^2) 降至 O(T)。
-    """
-
-    def __init__(self, num_layers: int) -> None:
-        self.num_layers = num_layers
-        # 每一层存储 (k_cache, v_cache)，形状均为 (B, num_heads, seq_len, d_head)
-        self.cache: list[tuple[Tensor, Tensor] | None] = [None] * num_layers
-
-    def get_seq_len(self, layer_idx: int = 0) -> int:
-        """返回当前已缓存的历史序列长度 start_pos"""
-        if self.cache[layer_idx] is None:
-            return 0
-        return self.cache[layer_idx][0].shape[-2]
-
-    def update(self, layer_idx: int, k_val: Tensor, v_val: Tensor) -> tuple[Tensor, Tensor]:
-        """
-        将当前步新算出的 k_val, v_val 沿序列维度 (dim=-2) 拼接到历史缓存后。
-        k_val, v_val 形状: Prefill 阶段为 (B, H, S, d_head)，Decode 阶段为 (B, H, 1, d_head)
-        """
-        if self.cache[layer_idx] is None:
-            self.cache[layer_idx] = (k_val, v_val)
-        else:
-            prev_k, prev_v = self.cache[layer_idx]
-            new_k = torch.cat([prev_k, k_val], dim=-2)
-            new_v = torch.cat([prev_v, v_val], dim=-2)
-            self.cache[layer_idx] = (new_k, new_v)
-        return self.cache[layer_idx]
-
-    def crop(self, max_seq_len: int) -> None:
-        """截断缓存尾部到指定长度（为投机解码 Speculative Decoding 预留的回滚接口）"""
-        for i in range(self.num_layers):
-            if self.cache[i] is not None:
-                k, v = self.cache[i]
-                self.cache[i] = (k[..., :max_seq_len, :], v[..., :max_seq_len, :])
-
-    def memory_bytes(self) -> int:
-        """计算当前 KV Cache 实际占用的显存/内存字节数"""
-        total_bytes = 0
-        for item in self.cache:
-            if item is not None:
-                k, v = item
-                total_bytes += k.numel() * k.element_size() + v.numel() * v.element_size()
-        return total_bytes
-
-
 # ==============================================================================
 # 3. 注意力机制与 Transformer 主干 (CS336 §3.4 - §3.6)
 # ==============================================================================
@@ -261,7 +216,7 @@ def scaled_dot_product_attention(
     Q: Tensor,
     K: Tensor,
     V: Tensor,
-    mask: Optional[Tensor] = None,
+    mask: Tensor | None = None,
 ) -> Tensor:
     """
     缩放点积注意力 (CS336 §3.4):
@@ -297,7 +252,7 @@ class MultiHeadSelfAttention(nn.Module):
         d_model: int,
         num_heads: int,
         max_seq_len: int = 2048,
-        theta: Optional[float] = None,
+        theta: float | None = None,
         use_rope: bool = True,
         layer_idx: int = 0,
         device: torch.device | str | None = None,
@@ -326,8 +281,8 @@ class MultiHeadSelfAttention(nn.Module):
     def forward(
         self,
         x: Tensor,
-        token_positions: Optional[Tensor] = None,
-        kv_cache: Optional[KVCache] = None,
+        token_positions: Tensor | None = None,
+        kv_cache: KVCache | None = None,
     ) -> Tensor:
         # x 形状: (..., S_q, d_model)，支持任意前导 Batch 维
         *batch_dims, seq_len, _ = x.shape
@@ -403,8 +358,8 @@ class TransformerBlock(nn.Module):
     def forward(
         self,
         x: Tensor,
-        token_positions: Optional[Tensor] = None,
-        kv_cache: Optional[KVCache] = None,
+        token_positions: Tensor | None = None,
+        kv_cache: KVCache | None = None,
     ) -> Tensor:
         # 子层 1: Pre-RMSNorm + 因果多头自注意力 + 残差连接
         x = x + self.attn(self.ln1(x), token_positions=token_positions, kv_cache=kv_cache)
@@ -467,8 +422,8 @@ class TransformerLM(nn.Module):
     def forward(
         self,
         in_indices: Tensor,
-        token_positions: Optional[Tensor] = None,
-        kv_cache: Optional[KVCache] = None,
+        token_positions: Tensor | None = None,
+        kv_cache: KVCache | None = None,
     ) -> Tensor:
         # in_indices: Prefill 阶段为 (B, S)，Decode 阶段为 (B, 1)
         x = self.token_embeddings(in_indices)  # (B, S_q, d_model)
@@ -486,7 +441,7 @@ class TransformerLM(nn.Module):
         temperature: float = 0.0,
         use_cache: bool = True,
         return_cache: bool = False,
-    ) -> Tensor | tuple[Tensor, Optional[KVCache]]:
+    ) -> Tensor | tuple[Tensor, KVCache | None]:
         """
         支持无缓存全量重算 (use_cache=False) 与 KV Cache 增量解码 (use_cache=True) 的自回归生成管线。
         """
@@ -561,7 +516,7 @@ class AdamW(torch.optim.Optimizer):
         super().__init__(params, defaults)
 
     @torch.no_grad()
-    def step(self, closure: Optional[Callable[[], float]] = None) -> Optional[float]:
+    def step(self, closure: Callable[[], float] | None = None) -> float | None:
         loss = None
         if closure is not None:
             with torch.enable_grad():
