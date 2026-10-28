@@ -91,7 +91,7 @@
 
 ## 4. KV Cache 推理基准与显存对账（核心亮点）
 
-统一在同一 checkpoint 上测量：prompt 16 token、贪心解码、fp16 权重、每次测量前 3 次 warm-up，
+统一在同一 checkpoint 上测量：prompt 16 token、贪心解码、fp16 权重，正式计时前先跑 3 次 16-token 预热解码，
 `torch.cuda.synchronize()` 卡住计时边界。正确性由 `torch.equal` 严格断言：
 **无缓存重算与 KV Cache 增量推理的 64-token 输出逐 token 完全一致（PASS）**。
 
