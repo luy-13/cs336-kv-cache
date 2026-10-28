@@ -1,17 +1,142 @@
-[Tokenizer] 使用 tiktoken (GPT-2) 编码完成，总 Token 数: 1,328,129
+[Tokenizer] tinystories_train_50M.txt: tiktoken (GPT-2) 编码完成，Token 数: 12,978,790
+[Tokenizer] tinystories_valid_14M.txt: tiktoken (GPT-2) 编码完成，Token 数: 3,335,614
 [Model] 初始化完成 | 设备: cuda | 参数量: 30.85M
-Step 001/300 | Loss: 10.8349 | LR: 1.00e-03 | Time: 0.7s
-Step 025/300 | Loss: 5.7604 | LR: 9.85e-04 | Time: 5.3s
-Step 050/300 | Loss: 4.6730 | LR: 9.40e-04 | Time: 10.1s
-Step 075/300 | Loss: 4.0299 | LR: 8.68e-04 | Time: 14.9s
-Step 100/300 | Loss: 3.7217 | LR: 7.75e-04 | Time: 19.6s
-Step 125/300 | Loss: 3.5944 | LR: 6.66e-04 | Time: 24.4s
-Step 150/300 | Loss: 3.4449 | LR: 5.50e-04 | Time: 29.2s
-Step 175/300 | Loss: 3.3684 | LR: 4.34e-04 | Time: 34.0s
-Step 200/300 | Loss: 3.3479 | LR: 3.25e-04 | Time: 38.7s
-Step 225/300 | Loss: 3.3256 | LR: 2.32e-04 | Time: 43.5s
-Step 250/300 | Loss: 3.0002 | LR: 1.60e-04 | Time: 48.3s
-Step 275/300 | Loss: 3.1149 | LR: 1.15e-04 | Time: 53.1s
-Step 300/300 | Loss: 3.0784 | LR: 1.00e-04 | Time: 57.9s
+Step 0001/3000 | Loss: 10.8345 | LR: 1.00e-03 | Time: 0.5s
+Step 0025/3000 | Loss: 5.8081 | LR: 1.00e-03 | Time: 5.1s
+Step 0050/3000 | Loss: 4.8991 | LR: 9.99e-04 | Time: 9.9s
+Step 0075/3000 | Loss: 4.1913 | LR: 9.99e-04 | Time: 14.6s
+Step 0100/3000 | Loss: 4.0833 | LR: 9.98e-04 | Time: 19.4s
+Step 0125/3000 | Loss: 3.7008 | LR: 9.96e-04 | Time: 24.2s
+Step 0150/3000 | Loss: 3.6768 | LR: 9.94e-04 | Time: 29.0s
+Step 0175/3000 | Loss: 3.4901 | LR: 9.92e-04 | Time: 33.8s
+Step 0200/3000 | Loss: 3.4371 | LR: 9.90e-04 | Time: 38.5s
+  [Val] step 0200 | Val Loss: 3.4093
+Step 0225/3000 | Loss: 3.1389 | LR: 9.88e-04 | Time: 43.9s
+Step 0250/3000 | Loss: 3.1732 | LR: 9.85e-04 | Time: 48.7s
+Step 0275/3000 | Loss: 3.2670 | LR: 9.81e-04 | Time: 53.5s
+Step 0300/3000 | Loss: 3.3098 | LR: 9.78e-04 | Time: 58.3s
+Step 0325/3000 | Loss: 3.0784 | LR: 9.74e-04 | Time: 63.1s
+Step 0350/3000 | Loss: 2.8940 | LR: 9.70e-04 | Time: 67.9s
+Step 0375/3000 | Loss: 2.8619 | LR: 9.66e-04 | Time: 72.6s
+Step 0400/3000 | Loss: 3.0133 | LR: 9.61e-04 | Time: 77.4s
+  [Val] step 0400 | Val Loss: 2.8652
+Step 0425/3000 | Loss: 2.8722 | LR: 9.56e-04 | Time: 82.8s
+Step 0450/3000 | Loss: 2.9165 | LR: 9.51e-04 | Time: 87.6s
+Step 0475/3000 | Loss: 2.7640 | LR: 9.45e-04 | Time: 92.4s
+Step 0500/3000 | Loss: 2.8871 | LR: 9.40e-04 | Time: 97.2s
+Step 0525/3000 | Loss: 2.8273 | LR: 9.34e-04 | Time: 102.0s
+Step 0550/3000 | Loss: 2.6347 | LR: 9.27e-04 | Time: 106.8s
+Step 0575/3000 | Loss: 3.0476 | LR: 9.21e-04 | Time: 111.6s
+Step 0600/3000 | Loss: 2.5806 | LR: 9.14e-04 | Time: 116.4s
+  [Val] step 0600 | Val Loss: 2.6871
+Step 0625/3000 | Loss: 2.7048 | LR: 9.07e-04 | Time: 121.8s
+Step 0650/3000 | Loss: 2.7588 | LR: 9.00e-04 | Time: 126.6s
+Step 0675/3000 | Loss: 2.6023 | LR: 8.92e-04 | Time: 131.4s
+Step 0700/3000 | Loss: 2.6669 | LR: 8.84e-04 | Time: 136.2s
+Step 0725/3000 | Loss: 2.6081 | LR: 8.76e-04 | Time: 141.0s
+Step 0750/3000 | Loss: 2.5770 | LR: 8.68e-04 | Time: 145.8s
+Step 0775/3000 | Loss: 2.4924 | LR: 8.60e-04 | Time: 150.6s
+Step 0800/3000 | Loss: 2.5208 | LR: 8.51e-04 | Time: 155.4s
+  [Val] step 0800 | Val Loss: 2.5859
+Step 0825/3000 | Loss: 2.5125 | LR: 8.42e-04 | Time: 160.8s
+Step 0850/3000 | Loss: 2.4270 | LR: 8.33e-04 | Time: 165.6s
+Step 0875/3000 | Loss: 2.6011 | LR: 8.24e-04 | Time: 170.4s
+Step 0900/3000 | Loss: 2.4573 | LR: 8.15e-04 | Time: 175.2s
+Step 0925/3000 | Loss: 2.4964 | LR: 8.05e-04 | Time: 180.0s
+Step 0950/3000 | Loss: 2.4538 | LR: 7.95e-04 | Time: 184.8s
+Step 0975/3000 | Loss: 2.3137 | LR: 7.85e-04 | Time: 189.6s
+Step 1000/3000 | Loss: 2.4568 | LR: 7.75e-04 | Time: 194.4s
+  [Val] step 1000 | Val Loss: 2.4706
+Step 1025/3000 | Loss: 2.5445 | LR: 7.65e-04 | Time: 199.8s
+Step 1050/3000 | Loss: 2.2943 | LR: 7.54e-04 | Time: 204.6s
+Step 1075/3000 | Loss: 2.4953 | LR: 7.44e-04 | Time: 209.4s
+Step 1100/3000 | Loss: 2.3311 | LR: 7.33e-04 | Time: 214.2s
+Step 1125/3000 | Loss: 2.2254 | LR: 7.22e-04 | Time: 219.0s
+Step 1150/3000 | Loss: 2.4357 | LR: 7.11e-04 | Time: 223.8s
+Step 1175/3000 | Loss: 2.3261 | LR: 7.00e-04 | Time: 228.6s
+Step 1200/3000 | Loss: 2.4164 | LR: 6.89e-04 | Time: 233.4s
+  [Val] step 1200 | Val Loss: 2.3825
+Step 1225/3000 | Loss: 2.4679 | LR: 6.78e-04 | Time: 238.8s
+Step 1250/3000 | Loss: 2.3889 | LR: 6.66e-04 | Time: 243.5s
+Step 1275/3000 | Loss: 2.4968 | LR: 6.55e-04 | Time: 248.3s
+Step 1300/3000 | Loss: 2.2893 | LR: 6.44e-04 | Time: 253.1s
+Step 1325/3000 | Loss: 2.1959 | LR: 6.32e-04 | Time: 258.0s
+Step 1350/3000 | Loss: 2.3329 | LR: 6.20e-04 | Time: 262.7s
+Step 1375/3000 | Loss: 2.2727 | LR: 6.09e-04 | Time: 267.6s
+Step 1400/3000 | Loss: 2.0850 | LR: 5.97e-04 | Time: 272.4s
+  [Val] step 1400 | Val Loss: 2.3245
+Step 1425/3000 | Loss: 2.4664 | LR: 5.85e-04 | Time: 277.8s
+Step 1450/3000 | Loss: 2.3349 | LR: 5.74e-04 | Time: 282.6s
+Step 1475/3000 | Loss: 2.4225 | LR: 5.62e-04 | Time: 287.4s
+Step 1500/3000 | Loss: 2.2875 | LR: 5.50e-04 | Time: 292.2s
+Step 1525/3000 | Loss: 2.1387 | LR: 5.38e-04 | Time: 297.0s
+Step 1550/3000 | Loss: 2.2440 | LR: 5.26e-04 | Time: 301.8s
+Step 1575/3000 | Loss: 2.1791 | LR: 5.15e-04 | Time: 306.6s
+Step 1600/3000 | Loss: 2.2994 | LR: 5.03e-04 | Time: 311.4s
+  [Val] step 1600 | Val Loss: 2.2716
+Step 1625/3000 | Loss: 2.2317 | LR: 4.91e-04 | Time: 316.8s
+Step 1650/3000 | Loss: 2.2691 | LR: 4.80e-04 | Time: 321.6s
+Step 1675/3000 | Loss: 2.1895 | LR: 4.68e-04 | Time: 326.4s
+Step 1700/3000 | Loss: 2.0216 | LR: 4.56e-04 | Time: 331.2s
+Step 1725/3000 | Loss: 2.1936 | LR: 4.45e-04 | Time: 336.0s
+Step 1750/3000 | Loss: 2.1604 | LR: 4.34e-04 | Time: 340.8s
+Step 1775/3000 | Loss: 2.1280 | LR: 4.22e-04 | Time: 345.6s
+Step 1800/3000 | Loss: 2.2515 | LR: 4.11e-04 | Time: 350.4s
+  [Val] step 1800 | Val Loss: 2.2129
+Step 1825/3000 | Loss: 2.1738 | LR: 4.00e-04 | Time: 355.8s
+Step 1850/3000 | Loss: 2.2207 | LR: 3.89e-04 | Time: 360.6s
+Step 1875/3000 | Loss: 2.1316 | LR: 3.78e-04 | Time: 365.4s
+Step 1900/3000 | Loss: 2.2375 | LR: 3.67e-04 | Time: 370.2s
+Step 1925/3000 | Loss: 2.0437 | LR: 3.56e-04 | Time: 375.0s
+Step 1950/3000 | Loss: 2.1046 | LR: 3.46e-04 | Time: 379.8s
+Step 1975/3000 | Loss: 2.2181 | LR: 3.35e-04 | Time: 384.6s
+Step 2000/3000 | Loss: 2.1664 | LR: 3.25e-04 | Time: 389.4s
+  [Val] step 2000 | Val Loss: 2.1031
+Step 2025/3000 | Loss: 2.1590 | LR: 3.15e-04 | Time: 394.8s
+Step 2050/3000 | Loss: 2.1249 | LR: 3.05e-04 | Time: 399.6s
+Step 2075/3000 | Loss: 2.1086 | LR: 2.95e-04 | Time: 404.4s
+Step 2100/3000 | Loss: 1.9835 | LR: 2.85e-04 | Time: 409.2s
+Step 2125/3000 | Loss: 2.1422 | LR: 2.76e-04 | Time: 414.0s
+Step 2150/3000 | Loss: 2.1478 | LR: 2.67e-04 | Time: 418.8s
+Step 2175/3000 | Loss: 2.0127 | LR: 2.58e-04 | Time: 423.6s
+Step 2200/3000 | Loss: 2.0709 | LR: 2.49e-04 | Time: 428.4s
+  [Val] step 2200 | Val Loss: 2.1056
+Step 2225/3000 | Loss: 1.8341 | LR: 2.40e-04 | Time: 433.8s
+Step 2250/3000 | Loss: 2.2548 | LR: 2.32e-04 | Time: 438.6s
+Step 2275/3000 | Loss: 2.1313 | LR: 2.24e-04 | Time: 443.4s
+Step 2300/3000 | Loss: 2.1045 | LR: 2.16e-04 | Time: 448.2s
+Step 2325/3000 | Loss: 1.9545 | LR: 2.08e-04 | Time: 453.0s
+Step 2350/3000 | Loss: 2.0339 | LR: 2.00e-04 | Time: 457.8s
+Step 2375/3000 | Loss: 2.0238 | LR: 1.93e-04 | Time: 462.6s
+Step 2400/3000 | Loss: 2.0054 | LR: 1.86e-04 | Time: 467.4s
+  [Val] step 2400 | Val Loss: 2.0442
+Step 2425/3000 | Loss: 1.9637 | LR: 1.79e-04 | Time: 472.8s
+Step 2450/3000 | Loss: 2.1061 | LR: 1.73e-04 | Time: 477.6s
+Step 2475/3000 | Loss: 2.0352 | LR: 1.66e-04 | Time: 482.4s
+Step 2500/3000 | Loss: 2.0137 | LR: 1.60e-04 | Time: 487.2s
+Step 2525/3000 | Loss: 1.9938 | LR: 1.55e-04 | Time: 492.0s
+Step 2550/3000 | Loss: 2.1781 | LR: 1.49e-04 | Time: 496.8s
+Step 2575/3000 | Loss: 2.0378 | LR: 1.44e-04 | Time: 501.6s
+Step 2600/3000 | Loss: 1.9621 | LR: 1.39e-04 | Time: 506.4s
+  [Val] step 2600 | Val Loss: 2.0684
+Step 2625/3000 | Loss: 1.9638 | LR: 1.34e-04 | Time: 511.8s
+Step 2650/3000 | Loss: 2.1189 | LR: 1.30e-04 | Time: 516.6s
+Step 2675/3000 | Loss: 2.0020 | LR: 1.26e-04 | Time: 521.4s
+Step 2700/3000 | Loss: 2.1475 | LR: 1.22e-04 | Time: 526.2s
+Step 2725/3000 | Loss: 1.9614 | LR: 1.19e-04 | Time: 531.0s
+Step 2750/3000 | Loss: 1.8760 | LR: 1.15e-04 | Time: 535.8s
+Step 2775/3000 | Loss: 2.1168 | LR: 1.12e-04 | Time: 540.6s
+Step 2800/3000 | Loss: 2.0445 | LR: 1.10e-04 | Time: 545.4s
+  [Val] step 2800 | Val Loss: 2.1273
+Step 2825/3000 | Loss: 2.0957 | LR: 1.08e-04 | Time: 550.9s
+Step 2850/3000 | Loss: 1.9821 | LR: 1.06e-04 | Time: 555.7s
+Step 2875/3000 | Loss: 2.0750 | LR: 1.04e-04 | Time: 560.5s
+Step 2900/3000 | Loss: 1.8769 | LR: 1.02e-04 | Time: 565.3s
+Step 2925/3000 | Loss: 2.0001 | LR: 1.01e-04 | Time: 570.1s
+Step 2950/3000 | Loss: 2.0642 | LR: 1.01e-04 | Time: 574.9s
+Step 2975/3000 | Loss: 1.9539 | LR: 1.00e-04 | Time: 579.7s
+Step 3000/3000 | Loss: 1.9654 | LR: 1.00e-04 | Time: 584.5s
+  [Val] step 3000 | Val Loss: 2.0341
+[Train] 完成 3000 步，耗时 585.1s，处理 12,288,000 tokens (21,001 tokens/s)
+[Train] Train Loss 10.8345 -> 1.9654 | Val Loss 3.4093 -> 2.0341
 [Done] 权重已保存至 checkpoints/model.pt，损失曲线已保存至 assets/training_loss.png
-EXIT=0

@@ -18,6 +18,9 @@ checkpoints/
 lectures/
 readings/
 
+# 数据集：63MB，留本地即可，用脚本重新拉取
+data/
+
 # 本地临时文件
 .backup_before_fix/
 .DS_Store
