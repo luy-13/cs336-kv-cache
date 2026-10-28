@@ -1,101 +1,177 @@
-# CS336: Language Modeling from Scratch — Spring 2026
+# 轻量化 Llama 式 Transformer 与端侧 KV Cache 推理性能剖析
 
-Stanford CS336「从头构建大语言模型」2026 春季版全套资料存档。
-讲师：**Tatsunori Hashimoto**、**Percy Liang**。官网：<https://stanford-cs336.github.io/>
-课程录像：官方 YouTube playlist（见官网 Recordings）。
-
-本目录包含：**Lectures 讲义（PDF slides + 可运行 Python 讲义）**、**5 次 Assignments 作业（handout + starter code）**、**Readings 阅读论文（98 篇 PDF + 13 个网页链接）**。
+> 在单张 **RTX 3050 Ti Laptop（4 GB VRAM）** 上，从零实现一个 30.85M 参数的 decoder-only Transformer，
+> 完成 BF16 混合精度预训练、KV Cache 推理加速与显存分配器级剖析的全闭环。
+>
+> 关键词：`PyTorch` · `RoPE` · `RMSNorm` · `SwiGLU` · `KV Cache` · `BF16 AMP` · `CUDA Timing`
 
 ---
 
-## 目录结构
+## 1. 项目简介
+
+本项目基于 Stanford CS336 的课程骨架，用原生 PyTorch 算子手写全部模型组件，目标是回答一个端侧推理的工程问题：
+
+> **在 4 GB 显存的消费级显卡上，一个自回归模型的历史 Token 重复计算到底值多少时间？KV Cache 又能把它压到什么程度？**
+
+整个闭环包含三段：
+
+| 阶段 | 产出 |
+|---|---|
+| 模型构建 | RMSNorm / RoPE / SwiGLU / Causal MHA 全部手写，30.85M 参数 |
+| 混合精度预训练 | 50 MB TinyStories 子集，3000 步，**Train Loss 10.83 → 1.97，Val Loss 3.41 → 2.03** |
+| 推理加速与剖析 | Prefill / Decode 解耦 + KV Cache，**L=1024 时 96.3 → 223.4 tok/s（2.32×）**，并给出分配器峰值显存的对账结论 |
+
+---
+
+## 2. 核心架构与工程特性
+
+### 2.1 模型配置
+
+| 项目 | 取值 |
+|---|---|
+| 架构 | Decoder-only Transformer（Llama 式） |
+| 参数量 | **30.85M** |
+| 层数 | 6 |
+| d_model / num_heads / d_head | 256 / 8 / 32 |
+| d_ff（SwiGLU 中间维） | 768 |
+| 上下文长度 | 1024 |
+| 位置编码 | RoPE（θ = 10000，interleaved 相邻配对） |
+| 归一化 | RMSNorm（pre-norm） |
+| 激活 | SwiGLU |
+| 词表 | 50257（tiktoken GPT-2） |
+
+### 2.2 KV Cache 两阶段推理
+
+解码被显式拆成 Prefill 与 Decode 两条路径：
+
+- **Prefill**：整段 prompt（Q 长度 = S）走标准因果掩码注意力，一次性写入 K/V；
+- **Decode**：每步只有 1 个 Query，对长度为 `start_pos + 1` 的全量 cache 做注意力。
+
+缓存容器的三个关键设计：
+
+| 能力 | 实现 |
+|---|---|
+| 位置对齐 | `start_pos` 显式传入，保证 RoPE 角度与绝对位置一致 |
+| 动态追加 | `update()` 每层按 `[B, H, T, d_head]` 追加新 K/V |
+| 截断回滚 | `crop(n)` 丢弃末尾 n 个位置，支持采样分支回退 |
+| 显存自述 | `memory_bytes()` 按 `numel × element_size` 汇报张量口径占用 |
+
+工程校验：官方测试 **47 passed, 1 xfailed**（BPE 训练、分词器、模型前向全部通过）。
+
+---
+
+## 3. 预训练实验与防过拟合验证
+
+### 3.1 训练配置
+
+| 项目 | 取值 |
+|---|---|
+| 数据 | TinyStoriesV2-GPT4，按 `<\|endoftext\|>` 边界切分 |
+| 训练集 | 50.0 MB / 65,077 条故事 / **12,978,790 tokens** |
+| 验证集 | 12.9 MB / 16,619 条故事 / **3,335,614 tokens** |
+| 优化器 | AdamW，lr 1e-3，weight decay 0.01，grad clip 1.0 |
+| 调度 | 余弦退火至 1e-4（T_max = 3000） |
+| 精度 | BF16 autocast（Ampere sm_86） |
+| Batch | 8 × 梯度累积 2 = 16，seq len 256 |
+| 步数 / 训练量 | 3000 步 / 12,288,000 tokens（约 0.95 轮） |
+| 耗时 / 吞吐 | **585.1 s / ≈21,001 tokens/s** |
+| 随机性 | 全局 seed 1337 |
+
+![训练与验证 Loss 曲线](assignments/assignment1-basics/assets/training_loss.png)
+
+### 3.2 结果
+
+- **Train Loss：10.8345 → 1.9654**（图中为 EMA-20 平滑曲线）
+- **Val Loss：3.4093 → 2.0341**（每 200 步在 20 个独立 batch 上评测）
+- 两条曲线全程贴合，验证集仅高出 **0.06–0.10**，**未出现明显过拟合**。
+
+注：12.29M 训练 token 约为语料的一轮（0.95 epoch），因此 Loss 仍处于下降通道而非平台期。
+
+---
+
+## 4. KV Cache 推理基准与显存对账（核心亮点）
+
+统一在同一 checkpoint 上测量：prompt 16 token、贪心解码、fp16 权重、每次测量前 3 次 warm-up，
+`torch.cuda.synchronize()` 卡住计时边界。正确性由 `torch.equal` 严格断言：
+**无缓存重算与 KV Cache 增量推理的 64-token 输出逐 token 完全一致（PASS）**。
+
+![KV Cache 延迟与显存曲线](assignments/assignment1-basics/assets/kv_cache_benchmark.png)
+
+| 生成长度 L | 无缓存 (ms) | KV Cache (ms) | 无缓存 (tok/s) | Cache (tok/s) | 加速比 | 张量口径 / 理论 (MB) | 分配器峰值增量 (MB) |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 64 | 302.1 | 258.7 | 211.8 | 247.4 | 1.17× | 0.46 / 0.47 | 1.73 |
+| 128 | 599.1 | 520.9 | 213.6 | 245.7 | 1.15× | 0.84 / 0.84 | 1.73 |
+| 256 | 1176.5 | 1034.6 | 217.6 | 247.4 | 1.14× | 1.59 / 1.59 | 1.95 |
+| 512 | 2623.1 | 2065.9 | 195.2 | 247.8 | 1.27× | 3.09 / 3.09 | 3.71 |
+| **1024** | **10638.5** | **4583.0** | **96.3** | **223.4** | **2.32×** | **6.09 / 6.09** | **7.21** |
+
+### 洞察一：为什么短序列只有 1.17×，长序列能到 2.32×
+
+无缓存解码时，生成第 `t` 个 token 需要把长度 `t` 的历史全部重算，单步成本为
 
 ```
-cs336-2026/
-├── lectures/          讲义仓库(stanford-cs336/lectures)完整内容
-│   ├── lecture_03/04/05/08/09/11/15/16.pdf   幻灯片(8讲)
-│   ├── lecture_01/02/06/07/10/12/13/14/17.py 可运行讲义(9讲, 见下)
-│   ├── references.py  全部阅读引用(111条)的结构化清单
-│   └── (facts.py, lecture_util.py, assets/, images/, pyproject.toml…)
-├── assignments/       5 次作业(各含 handout PDF + starter code)
-│   ├── assignment1-basics/     cs336_assignment1_basics.pdf
-│   ├── assignment2-systems/    cs336_assignment2_systems.pdf
-│   ├── assignment3-scaling/    cs336_assignment3_scaling.pdf
-│   ├── assignment4-data/       cs336_assignment4_data.pdf
-│   └── assignment5-alignment/  cs336_spring2026_assignment5_alignment.pdf (+安全RLHF补充)
-└── readings/
-    └── papers/        讲义引用的 98 篇论文 PDF
+O(t² · d_head)  [注意力]  +  O(t · d_model · d_head)  [K/V 投影]
 ```
 
-> **可运行讲义（.py）说明**：CS336 部分讲次（Percy 讲的）不是幻灯片，而是"可执行讲义"——
-> Python 源码运行后生成带代码/输出的交互式 trace。可直接当源码阅读；若要运行，用讲义仓库里的
-> `uv`（`pyproject.toml`/`uv.lock`）环境。官网在线渲染版：`stanford-cs336.github.io/lectures/?trace=lecture_01`。
+累计到 L 个 token 就是 `O(L³)`；而 KV Cache 每步只算 1 个 Query，累计为 `O(L²)`，理论上 L 越大优势越大。
+
+但实测的 Cache 吞吐在 L ≤ 256 时几乎恒定（247 tok/s），说明此时**每步耗时被固定开销主导**——
+一个 30.85M 参数的小模型，单步计算量只有微秒级，真正占时间的是每层十余次 CUDA Kernel Launch 与
+Python dispatch。既然两种模式都卡在同一个常数项 `C₀` 上，比值自然趋近 1：
+
+```
+speedup(L) = (C₀ + c·L²) / (C₀ + c'·L)  →  1   (L 很小)
+```
+
+到 L=1024，无缓存模式的每 token 计算量涨到 96.3 tok/s，而缓存模式仅因 `torch.cat` 的 O(T) 拷贝
+轻微退化到 223.4 tok/s，加速比才真正拉开到 **2.32×**。
+
+### 洞察二：为什么分配器峰值恰好是张量的 1.18 倍
+
+在 T = prompt 16 + 生成 1024 时，KV Cache 的理论占用为
+
+```
+2 (K,V) × 6 层 × 8 头 × 32 (d_head) × 1040 × 2 bytes = 6.09 MiB
+```
+
+而 `torch.cuda.max_memory_allocated()` 扣除 67.8 MB 基线后实测 **7.21 MiB**，比值 **1.184**。
+
+原因在 `torch.cat` 的扩容方式：第 i 层执行 `cat([old, new])` 的瞬间，旧块尚未释放，
+于是**只有正在处理的那一层**同时持有两份；前 i−1 层已经整体替换为新块。因此峰值满足
+
+```
+peak / tensor = 1 + 1 / num_layers = 1 + 1/6 = 1.167
+```
+
+实测 1.184 略高，差额来自 cat 的临时索引张量与分配器 2 MB 块粒度。这条结论说明：
+**KV Cache 不是显存压力的来源**（7.21 MiB 相对于 4 GB 可忽略），真正吃显存的是 61.7 MB 权重
+与训练时 `B×S×50257` 的 logits。
+
+> 后续优化方向：把 `torch.cat` 换成预分配缓冲区（`torch.empty(max_len)` + 切片写入），
+> 可消除 O(T²) 拷贝，预计进一步拉高长序列加速比并让峰值贴回 1.0×。
 
 ---
 
-## 课程安排 · 逐讲（17 讲正课 + 2 场客座）
+## 5. 一键复现（Quick Start）
 
-| # | 日期 | 主题 | 主讲 | 材料 |
-|---|------|------|------|------|
-| 1 | 3/30 | Overview, tokenization | Percy | `lecture_01.py` · 作业1 出 |
-| 2 | 4/1 | PyTorch (einops), resource accounting (FLOPs/内存/算术强度) | Percy | `lecture_02.py` |
-| 3 | 4/6 | Architectures, hyperparameters | Tatsu | `lecture_03.pdf` |
-| 4 | 4/8 | Attention alternatives 与 mixture of experts | Tatsu | `lecture_04.pdf` |
-| 5 | 4/13 | GPUs, TPUs | Tatsu | `lecture_05.pdf` |
-| 6 | 4/15 | Kernels, Triton | Percy | `lecture_06.py` · 作业1 截止 / 作业2 出 |
-| 7 | 4/20 | Parallelism | Percy | `lecture_07.py` |
-| 8 | 4/22 | Parallelism | Tatsu | `lecture_08.pdf` |
-| 9 | 4/27 | Scaling laws | Tatsu | `lecture_09.pdf` |
-| 10 | 4/29 | Inference | Percy | `lecture_10.py` · 作业2 截止 / 作业3 出 |
-| 11 | 5/4 | Scaling laws | Tatsu | `lecture_11.pdf` |
-| 12 | 5/6 | Evaluation | Percy | `lecture_12.py` · 作业3 截止 / 作业4 出 |
-| 13 | 5/11 | Data (sources, datasets) | Percy | `lecture_13.py` |
-| 14 | 5/13 | Data (filtering/dedup/mixing/synthetic) | Percy | `lecture_14.py` |
-| 15 | 5/18 | Mid/post-training (SFT/RLHF) | Tatsu | `lecture_15.pdf` |
-| 16 | 5/20 | Post-training — RLVR | Tatsu | `lecture_16.pdf` · 作业4 截止 / 作业5 出 |
-| 17 | 5/27 | Alignment — multimodality | Percy | `lecture_17.py` |
-| 18 | 6/1 | 客座：Daniel Selsam | — | （无讲义） |
-| 19 | 6/3 | 客座：Dan Fu | — | 作业5 截止 |
+环境：Python 3.13 + [uv](https://docs.astral.sh/uv/) + PyTorch 2.11.0（CUDA 13），单卡 4 GB 即可。
 
----
+```bash
+cd assignments/assignment1-basics
+uv sync                                          # 安装依赖
 
-## 作业 Assignments（5 次）
+uv run python fetch_data.py                      # 流式拉取 64 MB 语料并切分 train/valid
+uv run python train.py                           # 3000 步预训练，约 10 分钟
+uv run python profile_kvcache.py                 # KV Cache 基准 + 显存剖析，约 30 秒
+```
 
-| 作业 | 主题 | handout |
-|------|------|---------|
-| 1 · basics | 从零实现 BPE tokenizer、Transformer、训练循环 | cs336_assignment1_basics.pdf (47页) |
-| 2 · systems | 系统优化：Triton kernel、Flash Attention、分布式训练 | cs336_assignment2_systems.pdf (48页) |
-| 3 · scaling | Scaling laws 实验与拟合 | cs336_assignment3_scaling.pdf (8页) |
-| 4 · data | 数据处理：过滤、去重、质量分类 | cs336_assignment4_data.pdf (16页) |
-| 5 · alignment | 对齐：SFT / RLHF / RLVR（含安全 RLHF 补充） | cs336_spring2026_assignment5_alignment.pdf |
+产物：
 
-每个作业目录 = 官方 GitHub 仓库完整内容（starter code + 测试 + handout）。作业 5 另含测试用 tiny-gpt2 模型与 HH-RLHF 等数据集。
+| 路径 | 内容 |
+|---|---|
+| `checkpoints/model.pt` | 训练后的权重（约 118 MB） |
+| `assets/training_loss.png` | Train / Val 双曲线 |
+| `assets/kv_cache_benchmark.png` | 延迟与显存三线对比图 |
+| `../../RUN_RESULTS.md` | 完整实验记录、测量口径与解读 |
 
----
-
-## 阅读资料 Readings
-
-`readings/papers/` 下是讲义 `references.py` 引用的 **97 篇论文 PDF**（文件名=引用键，如 `shannon_1950.pdf`、`gpt2_2019.pdf`、`transformer_2017.pdf`）。涵盖：n-gram/神经语言模型经典、Transformer 与各类架构、优化与初始化、GPU/kernel/并行、scaling laws、数据、对齐/RLHF、以及 2024–2026 的 Llama/Qwen/DeepSeek/OLMo 等前沿模型报告。
-
-> 说明：`references.py` 共引用 111 条，其中 98 条为 PDF；`deepseek_v4_2026` 的源链接（HuggingFace `DeepSeek-V4-Pro` 仓库内的 `DeepSeek_V4.pdf`）已失效——该仓库只有模型权重无此 PDF，故未获取（97/98）。`lstm_1997` 原源 `bioinf.jku.at` 无响应，改用 CMU 课程镜像获取。
-
-完整引用清单（含标题/作者/日期）见 `lectures/references.py`。
-
-### 仅链接（网页/博客，未下载 PDF）
-
-- OpenWebText — <https://skylion007.github.io/OpenWebTextCorpus/>
-- GPT-J — <https://arankomatsuzaki.wordpress.com/2021/06/04/gpt-j/>
-- The FLOPs Calculus of LM Training — <https://medium.com/@dzmitrybahdanau/the-flops-calculus-of-language-model-training-3b19c1f025e4>
-- Alpaca — <https://crfm.stanford.edu/2023/03/13/alpaca.html>
-- Transformer Math — <https://blog.eleuther.ai/transformer-math/>
-- Muon optimizer — <https://kellerjordan.github.io/posts/muon/>
-- Llama 4 — <https://ai.meta.com/blog/llama-4-multimodal-intelligence/>
-- OLMo 2 32B — <https://allenai.org/blog/olmo2-32B>
-- Marin 8B / 32B — <https://marin.readthedocs.io/>
-- Qwen 3.5 — <https://qwen.ai/blog?id=qwen3.5>
-- MiniMax M2.5 — <https://www.minimax.io/news/minimax-m25>
-- Xiaomi MiMo v2 — <https://mimo.xiaomi.com/mimo-v2-pro>
-
----
-
-*资料来源：stanford-cs336.github.io 及 github.com/stanford-cs336（Spring 2026）。仅供个人学习，版权归 Stanford 及各作者所有。*
+> 说明：数据集与权重体积较大，未纳入版本库，由 `fetch_data.py` 与 `train.py` 现场生成。
