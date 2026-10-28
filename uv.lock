@@ -117,47 +117,6 @@ wheels = [
 ]
 
 [[package]]
-name = "cs336-basics"
-version = "26.0.0"
-source = { editable = "." }
-dependencies = [
-    { name = "einops" },
-    { name = "einx" },
-    { name = "jaxtyping" },
-    { name = "matplotlib" },
-    { name = "numpy" },
-    { name = "psutil" },
-    { name = "pytest" },
-    { name = "pytest-timeout" },
-    { name = "regex" },
-    { name = "ruff" },
-    { name = "tiktoken" },
-    { name = "torch" },
-    { name = "tqdm" },
-    { name = "ty" },
-    { name = "wandb" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "einops", specifier = ">=0.8" },
-    { name = "einx", specifier = ">=0.4" },
-    { name = "jaxtyping", specifier = ">=0.3" },
-    { name = "matplotlib", specifier = ">=3.11.2" },
-    { name = "numpy", specifier = ">=2.4" },
-    { name = "psutil", specifier = ">=7" },
-    { name = "pytest", specifier = ">=9.0" },
-    { name = "pytest-timeout" },
-    { name = "regex", specifier = ">=2026.3.32" },
-    { name = "ruff", specifier = ">=0.15.8" },
-    { name = "tiktoken", specifier = ">=0.12.0" },
-    { name = "torch", specifier = "~=2.11.0" },
-    { name = "tqdm", specifier = ">=4.67" },
-    { name = "ty", specifier = ">=0.0.26" },
-    { name = "wandb", specifier = ">=0.25" },
-]
-
-[[package]]
 name = "cuda-bindings"
 version = "13.2.0"
 source = { registry = "https://pypi.tuna.tsinghua.edu.cn/simple" }
@@ -416,6 +375,47 @@ wheels = [
     { url = "https://pypi.tuna.tsinghua.edu.cn/packages/a9/c4/1407df7512a5b36cc79840e01710dc575733c461b13ab866cae77eaf87f3/kiwisolver-1.5.1-graalpy312-graalpy250_312_native-macosx_11_0_arm64.whl", hash = "sha256:482676e5bd48d70ac99d9fc78863469845421e01184fa83f1f9366dc49f7e974", size = 134002, upload-time = "2026-08-28T10:28:08.881Z" },
     { url = "https://pypi.tuna.tsinghua.edu.cn/packages/16/45/c37a21ad5c0ab581a93c55ad544721aaa1f0ae94edb29c6a678a23d013e6/kiwisolver-1.5.1-graalpy312-graalpy250_312_native-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:072bdb15a3c19a5b5dbc8f8fb1f4e1884bf4f3507eeb4cc6334401274d37a5c0", size = 194292, upload-time = "2026-08-28T10:28:11.06Z" },
     { url = "https://pypi.tuna.tsinghua.edu.cn/packages/a6/c1/69f00d627949580e43d57af0aa465df46868d7c29801c137a55374101294/kiwisolver-1.5.1-graalpy312-graalpy250_312_native-win_amd64.whl", hash = "sha256:a5a00665d1a0e26763a7338d7e911d4598fbc1d50dd0d6b7919b7dc6c5d6569f", size = 73362, upload-time = "2026-08-28T10:28:12.449Z" },
+]
+
+[[package]]
+name = "kvlm"
+version = "1.0.0"
+source = { editable = "." }
+dependencies = [
+    { name = "einops" },
+    { name = "einx" },
+    { name = "jaxtyping" },
+    { name = "matplotlib" },
+    { name = "numpy" },
+    { name = "psutil" },
+    { name = "pytest" },
+    { name = "pytest-timeout" },
+    { name = "regex" },
+    { name = "ruff" },
+    { name = "tiktoken" },
+    { name = "torch" },
+    { name = "tqdm" },
+    { name = "ty" },
+    { name = "wandb" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "einops", specifier = ">=0.8" },
+    { name = "einx", specifier = ">=0.4" },
+    { name = "jaxtyping", specifier = ">=0.3" },
+    { name = "matplotlib", specifier = ">=3.11.2" },
+    { name = "numpy", specifier = ">=2.4" },
+    { name = "psutil", specifier = ">=7" },
+    { name = "pytest", specifier = ">=9.0" },
+    { name = "pytest-timeout" },
+    { name = "regex", specifier = ">=2026.3.32" },
+    { name = "ruff", specifier = ">=0.15.8" },
+    { name = "tiktoken", specifier = ">=0.12.0" },
+    { name = "torch", specifier = "~=2.11.0" },
+    { name = "tqdm", specifier = ">=4.67" },
+    { name = "ty", specifier = ">=0.0.26" },
+    { name = "wandb", specifier = ">=0.25" },
 ]
 
 [[package]]

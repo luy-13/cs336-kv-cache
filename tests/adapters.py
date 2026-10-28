@@ -8,7 +8,7 @@ import torch
 from jaxtyping import Bool, Float, Int
 from torch import Tensor
 
-from cs336_basics.model import (
+from kvlm.model import (
     AdamW,
     Embedding,
     Linear,
@@ -268,7 +268,7 @@ def get_tokenizer(
     merges: list[tuple[bytes, bytes]],
     special_tokens: list[str] | None = None,
 ) -> Any:
-    from cs336_basics.tokenizer import Tokenizer
+    from kvlm.tokenizer import Tokenizer
 
     return Tokenizer(vocab=vocab, merges=merges, special_tokens=special_tokens)
 
@@ -279,11 +279,11 @@ def run_train_bpe(
     special_tokens: list[str],
     **kwargs,
 ) -> tuple[dict[int, bytes], list[tuple[bytes, bytes]]]:
-    from cs336_basics import bpe
+    from kvlm import bpe
 
     for fn_name in ("train_bpe", "run_train_bpe", "bpe_train"):
         if hasattr(bpe, fn_name):
             return getattr(bpe, fn_name)(
                 input_path=input_path, vocab_size=vocab_size, special_tokens=special_tokens, **kwargs
             )
-    raise AttributeError("请在 cs336_basics/bpe.py 中确认训练函数名称（如 train_bpe）")
+    raise AttributeError("请在 kvlm/bpe.py 中确认训练函数名称（如 train_bpe）")

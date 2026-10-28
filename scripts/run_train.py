@@ -7,7 +7,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from cs336_basics.model import TransformerLM, get_batch
+from kvlm.model import TransformerLM, get_batch
 
 TRAIN_PATH = Path("data/tinystories_train_50M.txt")
 VALID_PATH = Path("data/tinystories_valid_14M.txt")

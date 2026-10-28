@@ -77,7 +77,7 @@
 | 耗时 / 吞吐 | **585.1 s / ≈21,001 tokens/s** |
 | 随机性 | 全局 seed 1337 |
 
-![训练与验证 Loss 曲线](assignments/assignment1-basics/assets/training_loss.png)
+![训练与验证 Loss 曲线](results/figures/training_loss.png)
 
 ### 3.2 结果
 
@@ -95,7 +95,7 @@
 `torch.cuda.synchronize()` 卡住计时边界。正确性由 `torch.equal` 严格断言：
 **无缓存重算与 KV Cache 增量推理的 64-token 输出逐 token 完全一致（PASS）**。
 
-![KV Cache 延迟与显存曲线](assignments/assignment1-basics/assets/kv_cache_benchmark.png)
+![KV Cache 延迟与显存曲线](results/figures/kv_cache_benchmark.png)
 
 | 生成长度 L | 无缓存 (ms) | KV Cache (ms) | 无缓存 (tok/s) | Cache (tok/s) | 加速比 | 张量口径 / 理论 (MB) | 分配器峰值增量 (MB) |
 |---:|---:|---:|---:|---:|---:|---:|---:|

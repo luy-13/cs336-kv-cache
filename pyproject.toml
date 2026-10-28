@@ -1,7 +1,7 @@
 [project]
-name = "cs336_basics"
-version = "26.0.0"
-description = "CS336 Assignment 1"
+name = "kvlm"
+version = "1.0.0"
+description = "Lightweight Llama-style decoder-only Transformer with KV-cache inference profiling"
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
 dependencies = [
@@ -27,8 +27,8 @@ requires = ["uv_build>=0.11.0,<0.12.0"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
-module-name = "cs336_basics"
-module-root = ""
+module-name = "kvlm"
+module-root = "src"
 
 [[tool.uv.index]]
 url = "https://pypi.tuna.tsinghua.edu.cn/simple"

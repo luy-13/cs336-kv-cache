@@ -5,7 +5,7 @@ import time
 import matplotlib.pyplot as plt
 import torch
 
-from cs336_basics.model import TransformerLM
+from kvlm.model import TransformerLM
 
 
 def sync_device(device: str) -> None:
